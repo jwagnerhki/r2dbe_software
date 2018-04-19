@@ -8,7 +8,7 @@ from Queue import Queue
 
 from config import *
 from mark6 import Mark6
-from primitives import IFSignal, SignalPath, EthRoute, ModSubGroup
+from primitives import IFSignal, SignalPath, EthRoute, ModSubGroup, Port
 from r2dbe import R2DBE_INPUTS, R2DBE_NUM_INPUTS, R2dbe
 from utils import ExceptingThread
 
@@ -41,7 +41,7 @@ class Backend(object):
 			# Ethernet routing
 			mk6_iface_name = options[BACKEND_OPTION_IFACE % input_n]
 			mac, ip = mark6.get_iface_mac_ip(mk6_iface_name)
-			eth_rt = R2dbe.make_default_route_from_destination(mac, ip)
+			eth_rt = R2dbe.make_default_route_from_destination(mac, ip, Port(4000+input_n))
 			# Module
 			mods = ModSubGroup(options[BACKEND_OPTION_MODULES % input_n])
 			# Create signal path
@@ -50,8 +50,16 @@ class Backend(object):
 		return cls(name, station, r2dbe=r2dbe, mark6=mark6, signal_paths=signal_paths)
 
 	def setup(self):
-		self.r2dbe.setup(self.station, [sp.ifs for sp in self.signal_paths], [sp.ethrt for sp in self.signal_paths])
-		self.mark6.setup()
+		if True:
+			# Assume host names like 'r2dbe1', 'r2dbe2', use the last digit to derive unique VDIF Thread IDs
+			backendNr = int(self.r2dbe.roach2_host[-1]) - 1
+			threadIDs = [2*backendNr+0,2*backendNr+1]
+			self.r2dbe.setup(self.station, [sp.ifs for sp in self.signal_paths], [sp.ethrt for sp in self.signal_paths], threadIDs)
+			#print ('%s : using thread IDs %s' % (self.r2dbe.roach2_host, str(threadIDs)))
+		else:
+			# Original code
+			self.r2dbe.setup(self.station, [sp.ifs for sp in self.signal_paths], [sp.ethrt for sp in self.signal_paths])
+			self.mark6.setup()
 
 class Station(object):
 
